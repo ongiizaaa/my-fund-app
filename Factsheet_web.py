@@ -2,54 +2,38 @@ import streamlit as st
 import pandas as pd
 import os
 
-st.set_page_config(page_title="Instant Fund Finder", layout="wide")
+st.set_page_config(page_title="AVP Fund Finder", layout="wide")
 
-# --- ฟังก์ชันโหลดข้อมูลแบบ Super Fast ---
 @st.cache_data(show_spinner=False)
 def load_data_fast():
-    pq_file = 'data_cache.parquet'
-    excel_file = 'Factsheet_for_web.xlsx'
-    
-    if os.path.exists(pq_file):
-        return pd.read_parquet(pq_file)
-    
+    pq_file, excel_file = 'data_cache.parquet', 'Factsheet_for_web.xlsx'
+    if os.path.exists(pq_file): return pd.read_parquet(pq_file)
     if os.path.exists(excel_file):
         df = pd.read_excel(excel_file, engine='openpyxl')
         df.columns = df.columns.str.strip()
-        df.to_parquet(pq_file) 
+        df.to_parquet(pq_file)
         return df
-    else:
-        st.error("ไม่พบไฟล์ Factsheet_for_web.xlsx")
-        return pd.DataFrame()
+    return pd.DataFrame()
 
 df = load_data_fast()
-
-st.title("⚡ ค้นหากองทุน (ฉบับเสี้ยววินาที)")
+st.title("⚡ ค้นหา FFS กองทุน (ฉบับเสี้ยววินาที)")
 
 if not df.empty:
-    query = st.text_input("🔍 พิมพ์ชื่อกองทุน:", placeholder="เช่น SCB, K-CASH, HIDIV...", key="search_input").strip()
+    query = st.text_input("🔍 พิมพ์ชื่อกองทุน:", placeholder="เช่น SCB, K-CASH...").strip()
+    filtered = df[df['fund_name'].astype(str).str.contains(query, case=False, na=False)] if query else df.head(20)
 
-    if query:
-        filtered_df = df[df['fund_name'].astype(str).str.contains(query, case=False, na=False)]
-    else:
-        filtered_df = df.head(20)
-
-    # --- ส่วนการแสดงผลแบบใหม่ เพื่อให้เปิดแท็บใหม่ได้ ---
-    st.write(f"พบข้อมูล {len(filtered_df)} รายการ")
-    
-    # สร้าง Header ของตารางแบบง่าย
-    cols = st.columns([3, 2, 2])
-    cols[0].write("**ชื่อกองทุน**")
-    cols[1].write("**อัปเดตเมื่อ**")
-    cols[2].write("**เอกสาร (เปิดหน้าใหม่)**")
+    st.write(f"พบข้อมูล {len(filtered)} รายการ")
+    h1, h2, h3 = st.columns([3, 2, 1.5])
+    h1.write("**ชื่อกองทุน**"); h2.write("**อัปเดตเมื่อ**"); h3.write("**เอกสาร**")
     st.divider()
 
-    # วนลูปแสดงผลรายรายการ
-    for index, row in filtered_df.iterrows():
-        c1, c2, c3 = st.columns([3, 2, 2])
-        
+    for i, row in filtered.iterrows():
+        c1, c2, c3 = st.columns([3, 2, 1.5])
         c1.write(row['fund_name'])
         c2.write(str(row['as_of_date']))
         
-        # สูตรเด็ด: สร้างปุ่ม HTML ที่บังคับเปิดแท็บใหม่
-        pdf_url = row['link_pdf
+        # ผมแก้ตัวแปรใหม่หมดแล้ว ถ้ามันยัง Error คำว่า pdf_url แปลว่าพี่เซฟผิดไฟล์ครับ 100%
+        final_document_link = str(row.get('link_pdf_factsheet', '#'))
+        
+        btn = f'''<a href="{final_document_link}" target="_blank" style="text-decoration:none;"><div style="background-color:#ff4b4b;color:white;padding:8px;border-radius:6px;text-align:center;font-weight:bold;cursor:pointer;">📄 เปิด PDF</div></a>'''
+        c3.markdown(btn, unsafe_allow_html=True)
